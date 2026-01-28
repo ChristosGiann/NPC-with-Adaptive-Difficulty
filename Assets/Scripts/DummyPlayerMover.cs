@@ -14,68 +14,83 @@ public class DummyPlayerMover : MonoBehaviour
     public float strafeSwitchEvery = 0.7f;
 
     [Header("Arena")]
-    public LayerMask obstacles;           // βάλε μόνο Obstacles
-    public float wallCheckDist = 1.2f;
+    public float arenaRadius = 14f;       // αν φύγει πολύ έξω, γυρνάει μέσα
+    public Transform arenaCenter;
 
-    Rigidbody rb;
-    float tChange, tStrafe;
-    float targetTurn;
-    float strafeDir; // -1 ή +1
-    float forward;   // 0..1
-    bool strafeMode;
+    private Rigidbody rb;
 
-    void Awake()
+    private float tChange;
+    private float tStrafe;
+
+    private float forward;
+    private float turn;
+    private float strafeDir;
+    private bool strafeMode;
+
+    private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        rb.constraints = RigidbodyConstraints.FreezeRotation; // να μην πέφτει
-    }
-
-    void OnEnable()
-    {
-        PickNewIntent();
+        PickNewStyle();
         PickStrafe();
     }
 
-    void FixedUpdate()
+    private void FixedUpdate()
     {
-        // timers
+        if (arenaCenter != null)
+        {
+            Vector3 flat = transform.position - arenaCenter.position;
+            flat.y = 0f;
+            if (flat.magnitude > arenaRadius)
+            {
+                // γύρνα προς το κέντρο
+                Vector3 dir = (-flat).normalized;
+                float signed = Vector3.SignedAngle(transform.forward, dir, Vector3.up);
+                turn = Mathf.Clamp(signed / 45f, -1f, 1f);
+                forward = 1f;
+                strafeMode = false;
+            }
+        }
+
         tChange += Time.fixedDeltaTime;
         tStrafe += Time.fixedDeltaTime;
 
-        if (tChange >= changeEvery) PickNewIntent();
-        if (tStrafe >= strafeSwitchEvery) PickStrafe();
-
-        // wall avoidance: αν μπροστά έχει τοίχο, γύρνα
-        Vector3 fwd = transform.forward;
-        Vector3 origin = transform.position + Vector3.up * 0.5f;
-
-        if (Physics.Raycast(origin, fwd, wallCheckDist, obstacles))
+        if (tChange >= changeEvery)
         {
-            targetTurn = Random.Range(-160f, 160f);
-            forward = 0.0f; // σταμάτα λίγο για να γυρίσει
+            PickNewStyle();
         }
 
-        // turn
-        transform.Rotate(0f, targetTurn * turnSpeed * Time.fixedDeltaTime * 0.01f, 0f);
+        if (strafeMode && tStrafe >= strafeSwitchEvery)
+        {
+            PickStrafe();
+        }
 
-        // move (Rigidbody velocity)
-        float vx = strafeMode ? strafeDir * strafeSpeed : 0f;
-        float vz = forward * forwardSpeed;
+        // κίνηση
+        Vector3 fwd = transform.forward;
+        Vector3 right = transform.right;
 
-        Vector3 v = (transform.right * vx) + (transform.forward * vz);
-        v.y = rb.velocity.y;
-        rb.velocity = v;
+        Vector3 vel = fwd * (forward * forwardSpeed);
+
+        if (strafeMode)
+            vel += right * (strafeDir * strafeSpeed);
+
+        // ομαλοποίησε λίγο
+        Vector3 origVel = rb.velocity;
+        Vector3 desired = new Vector3(vel.x, origVel.y, vel.z);
+        rb.velocity = Vector3.Lerp(origVel, desired, 0.35f);
+
+        // στροφή
+        transform.Rotate(0f, turn * turnSpeed * Time.fixedDeltaTime, 0f);
     }
 
-    void PickNewIntent()
+    void PickNewStyle()
     {
         tChange = 0f;
 
-        // μικρή τυχαιότητα στο turning (σαν άνθρωπος)
-        targetTurn = Random.Range(-100f, 100f);
-
         // συνήθως προχωράει, καμιά φορά σταματάει λίγο
         forward = Random.value < 0.85f ? 1f : 0.2f;
+
+        // γύρνα λίγο τυχαία
+        turn = Random.Range(-1f, 1f);
 
         // μερικές φορές κάνει strafe
         strafeMode = Random.value < strafeChance;

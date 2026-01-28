@@ -2,28 +2,21 @@ using UnityEngine;
 
 public class SimpleMouseLook : MonoBehaviour
 {
-    public Transform playerBody;   // ο Player capsule
-    public float sens = 200f;      // ευαισθησία ποντικιού
-    float pitch;                   // γωνία πάνω-κάτω
+    public float sensitivity = 2f;
+    public Transform body;
 
-    void Start()
-    {
-        // Κλειδώνουμε τον κέρσορα στο κέντρο
-        Cursor.lockState = CursorLockMode.Locked;
-    }
+    float xRot;
 
     void Update()
     {
-        // Διάβασε κίνηση ποντικιού
-        float mx = Input.GetAxis("Mouse X") * sens * Time.deltaTime;
-        float my = Input.GetAxis("Mouse Y") * sens * Time.deltaTime;
+        float mx = Input.GetAxis("Mouse X") * sensitivity;
+        float my = Input.GetAxis("Mouse Y") * sensitivity;
 
-        // Pitch (πάνω-κάτω) στην κάμερα
-        pitch -= my;
-        pitch = Mathf.Clamp(pitch, -85f, 85f);
-        transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        xRot -= my;
+        xRot = Mathf.Clamp(xRot, -80f, 80f);
 
-        // Yaw (δεξιά-αριστερά) στο σώμα του Player
-        playerBody.Rotate(Vector3.up * mx);
+        transform.localRotation = Quaternion.Euler(xRot, 0f, 0f);
+        if (body != null)
+            body.Rotate(0f, mx, 0f);
     }
 }

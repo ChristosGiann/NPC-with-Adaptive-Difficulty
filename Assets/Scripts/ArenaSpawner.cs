@@ -16,13 +16,26 @@ public class ArenaSpawner : MonoBehaviour
         {
             if (arena == null) continue;
 
-            var playerSpawn = arena.Find("PlayerSpawn");
-            var enemySpawn  = arena.Find("EnemySpawn");
+            // βρίσκουμε spawns (αν δεν υπάρχουν, δημιουργούμε offsets)
+            Transform playerSpawn = arena.Find("PlayerSpawn");
+            Transform enemySpawn  = arena.Find("EnemySpawn");
 
-            if (playerSpawn == null || enemySpawn == null)
+            if (playerSpawn == null)
             {
-                Debug.LogWarning($"Arena '{arena.name}' missing PlayerSpawn or EnemySpawn");
-                continue;
+                var go = new GameObject("PlayerSpawn");
+                go.transform.SetParent(arena, false);
+                go.transform.localPosition = new Vector3(-3f, 0f, 0f);
+                go.transform.localRotation = Quaternion.identity;
+                playerSpawn = go.transform;
+            }
+
+            if (enemySpawn == null)
+            {
+                var go = new GameObject("EnemySpawn");
+                go.transform.SetParent(arena, false);
+                go.transform.localPosition = new Vector3(3f, 0f, 0f);
+                go.transform.localRotation = Quaternion.identity;
+                enemySpawn = go.transform;
             }
 
             // PLAYER (spawn first)
@@ -47,14 +60,34 @@ public class ArenaSpawner : MonoBehaviour
                 enemyT = eObj.transform;
             }
 
-            // WIRING (τρέχει πάντα, είτε spawned τώρα είτε υπήρχε ήδη)
+            // Στρέψε τους προς τα μέσα (να μη φαίνεται ότι "πάνε δεξιά" λόγω rotation spawns)
+            FaceFlat(playerT, enemyT.position);
+            FaceFlat(enemyT, playerT.position);
+
+            // WIRING (τρέχει πάντα, είτε ήταν ήδη spawned είτε μόλις έγινε)
             var agent = enemyT.GetComponent<EnemyAgent>();
             if (agent != null)
             {
                 agent.player = playerT;
 
-                // Muzzle: αν δεν υπάρχει, προειδοποίηση (για να το φτιάξεις στο prefab)
-                var muzzleT = enemyT.Find("Muzzle");
+                // refs για episode reset
+                agent.playerSpawn = playerSpawn;
+                agent.enemySpawn  = enemySpawn;
+                agent.playerRb = playerT.GetComponent<Rigidbody>();
+                agent.playerHealth = playerT.GetComponent<Health>();
+                agent.enemyHealth  = enemyT.GetComponent<Health>();
+
+                // muzzle
+                Transform muzzleT = enemyT.Find("Muzzle");
+                if (muzzleT == null)
+                {
+                    // προσπάθησε να το βρεις βαθύτερα
+                    foreach (var t in enemyT.GetComponentsInChildren<Transform>(true))
+                    {
+                        if (t.name == "Muzzle") { muzzleT = t; break; }
+                    }
+                }
+
                 if (muzzleT == null)
                     Debug.LogWarning($"Enemy in '{arena.name}' has no child 'Muzzle'.");
 
@@ -66,7 +99,17 @@ public class ArenaSpawner : MonoBehaviour
             if (shooter != null)
             {
                 shooter.target = enemyT;
+                shooter.ResetWarmup();
             }
         }
+    }
+
+    private static void FaceFlat(Transform t, Vector3 worldTarget)
+    {
+        if (t == null) return;
+        Vector3 look = worldTarget - t.position;
+        look.y = 0f;
+        if (look.sqrMagnitude < 0.0001f) return;
+        t.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
     }
 }
