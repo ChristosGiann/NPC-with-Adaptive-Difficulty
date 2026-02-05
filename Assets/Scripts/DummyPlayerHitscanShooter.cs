@@ -80,7 +80,7 @@ public class DummyPlayerHitscanShooter : MonoBehaviour
         // Αν χτύπησε Enemy, ενημέρωσε τον agent για shaping (recentlyHitTimer, hit penalty, hitsTaken++)
         var enemyAgent = hit.collider.GetComponentInParent<EnemyAgent>();
         if (enemyAgent != null)
-            enemyAgent.OnHitByPlayer(damage);
+            enemyAgent.ReportGotHit();
     }
     
 }

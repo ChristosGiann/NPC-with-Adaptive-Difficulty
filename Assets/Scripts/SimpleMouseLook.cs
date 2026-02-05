@@ -7,6 +7,12 @@ public class SimpleMouseLook : MonoBehaviour
 
     float xRot;
 
+    void Start()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
     void Update()
     {
         float mx = Input.GetAxis("Mouse X") * sensitivity;
@@ -14,6 +20,12 @@ public class SimpleMouseLook : MonoBehaviour
 
         xRot -= my;
         xRot = Mathf.Clamp(xRot, -80f, 80f);
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
 
         transform.localRotation = Quaternion.Euler(xRot, 0f, 0f);
         if (body != null)

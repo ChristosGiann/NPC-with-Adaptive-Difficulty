@@ -2,38 +2,30 @@ using UnityEngine;
 
 public class Bullet : MonoBehaviour
 {
-    public float damage = 20f;
-    public float lifeTime = 3f;
+    public float damage = 10f;
+    public float life = 3f;
 
-    [HideInInspector] public EnemyAgent owner;
+    [HideInInspector] public EnemyAgent owner; // training: για reward callbacks
 
-    private bool _consumed;
-
-    private void Start()
+    void Start()
     {
-        Destroy(gameObject, lifeTime);
+        Destroy(gameObject, life);
     }
 
-    private void OnCollisionEnter(Collision col)
+    void OnCollisionEnter(Collision col)
     {
-        if (_consumed) return;
-
-        // Πάρε το IDamageable από το collider ή από parent
-        var damageable = col.collider.GetComponentInParent<IDamageable>();
-        if (damageable != null)
+        var d = col.collider.GetComponentInParent<IDamageable>();
+        if (d != null)
         {
-            damageable.TakeDamage(damage);
+            d.TakeDamage(damage);
 
-            // reward μόνο αν χτύπησε Player (root tag)
-            if (owner != null)
+            // Αν είναι training, και ο owner υπάρχει, ενημέρωσε για hit player (μόνο αν χτύπησε Player target)
+            if (owner != null && col.collider.CompareTag("Player"))
             {
-                var root = col.collider.transform.root;
-                if (root != null && root.CompareTag("Player"))
-                    owner.OnHitPlayer();
+                owner.ReportHitPlayer();
             }
         }
 
-        _consumed = true;
         Destroy(gameObject);
     }
 }

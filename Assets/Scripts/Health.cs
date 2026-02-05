@@ -1,35 +1,52 @@
+using System;
 using UnityEngine;
 
 public class Health : MonoBehaviour, IDamageable
 {
-    public float maxHP = 100f;
-    public bool trainingImmortal = false; // τσέκαρέ το στον DummyPlayer
+    [Header("Health")]
+    public float MaxHP = 100f;
+    public bool TrainingImmortal = false;
+    public bool LogDamage = false;
 
-    [SerializeField] private float hp;
+    [SerializeField] private float hp = 100f;
+    public float Hp => hp;
 
-    private void Awake()
+    public event Action<Health> Died;
+    public event Action<Health, float> Damaged; // (who, dmg)
+
+    void Awake()
     {
-        hp = maxHP;
+        ResetHP();
     }
 
     public void ResetHP()
     {
-        hp = maxHP;
+        hp = Mathf.Max(1f, MaxHP);
+    }
+
+    public void SetHP(float value)
+    {
+        hp = Mathf.Clamp(value, 0f, Mathf.Max(1f, MaxHP));
+        if (hp <= 0f) Die();
     }
 
     public void TakeDamage(float dmg)
     {
+        if (TrainingImmortal) return;
+        if (dmg <= 0f) return;
+
         hp -= dmg;
+        if (LogDamage) Debug.Log($"[Health] {gameObject.name} took {dmg} dmg => {hp}", this);
+        Damaged?.Invoke(this, dmg);
 
         if (hp <= 0f)
-        {
-            if (trainingImmortal)
-            {
-                hp = maxHP;   // άμεσο reset για training dummy
-                return;
-            }
+            Die();
+    }
 
-            Destroy(gameObject); // game mode
-        }
+    private void Die()
+    {
+        hp = 0f;
+        if (LogDamage) Debug.Log($"[Health] {gameObject.name} died", this);
+        Died?.Invoke(this);
     }
 }
