@@ -1,0 +1,29 @@
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+UserSettings/
+
+.vs/
+.vscode/
+.idea/
+
+# Python envs
+.venv/
+venv/
+
+# Optional local folders (αν δεν τα χρειάζονται οι άλλοι)
+config/
+results/
+
+*.csproj
+*.sln
+*.user
+*.pidb
+*.booproj
+*.svd
+
+.DS_Store
+Thumbs.db
