@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class GunRaycast : MonoBehaviour
@@ -18,6 +19,12 @@ public class GunRaycast : MonoBehaviour
     public float tracerWidth = 0.02f;
     public bool showHitPoint = false;
     public float hitPointSize = 0.06f;
+
+    /// <summary>
+    /// Fires once per shot. Argument: hitSomething (true/false).
+    /// Used by WaveMetricsCollector to compute accuracy.
+    /// </summary>
+    public event Action<bool> ShotResolved;
 
     float cd;
 
@@ -53,10 +60,14 @@ public class GunRaycast : MonoBehaviour
         // (Scene view only)
         Debug.DrawRay(ray.origin, ray.direction * range, Color.yellow, 0.15f);
 
+        bool hitSomething = false;
+
         Vector3 end = ray.origin + ray.direction * range;
         if (Physics.Raycast(ray, out RaycastHit hit, range, mask, QueryTriggerInteraction.Ignore))
         {
+            hitSomething = true;
             end = hit.point;
+
             var d = hit.collider.GetComponentInParent<IDamageable>();
             if (d != null) d.TakeDamage(damage);
 
@@ -70,6 +81,8 @@ public class GunRaycast : MonoBehaviour
         }
 
         if (showTracer) SpawnTracer(ray.origin, end);
+
+        ShotResolved?.Invoke(hitSomething);
     }
 
     void SpawnTracer(Vector3 a, Vector3 b)
@@ -83,35 +96,17 @@ public class GunRaycast : MonoBehaviour
         lr.SetPosition(1, b);
         lr.startWidth = tracerWidth;
         lr.endWidth = tracerWidth;
-        lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        lr.receiveShadows = false;
-        lr.useWorldSpace = true;
 
-        // simple unlit material
-        var mat = new Material(Shader.Find("Unlit/Color"));
-        mat.color = Color.yellow;
-        lr.material = mat;
-
-        Destroy(go, Mathf.Clamp(tracerSeconds, 0.01f, 1f));
+        Destroy(go, tracerSeconds);
     }
 
-    void SpawnHitPoint(Vector3 p)
+    void SpawnHitPoint(Vector3 pos)
     {
-        var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        s.name = "_HitPoint";
-        s.transform.position = p;
-        s.transform.localScale = Vector3.one * Mathf.Max(0.01f, hitPointSize);
-
-        // remove collider so it doesn't interfere
-        var col = s.GetComponent<Collider>();
-        if (col) Destroy(col);
-
-        var r = s.GetComponent<Renderer>();
-        if (r)
-        {
-            r.sharedMaterial = new Material(Shader.Find("Standard"));
-        }
-
-        Destroy(s, 0.25f);
+        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        go.hideFlags = HideFlags.DontSave;
+        go.transform.position = pos;
+        go.transform.localScale = Vector3.one * hitPointSize;
+        Destroy(go.GetComponent<Collider>());
+        Destroy(go, 0.35f);
     }
 }

@@ -67,6 +67,19 @@ public class EnemyAgent : Agent
     float shootCd;
     int gotHitCount;
 
+    // ----------------------------
+    // Telemetry (gameplay)
+    // ----------------------------
+    float telemetryWaveStart;
+    float telemetryTotalTime;
+    float telemetryStrafeTime;
+    float telemetryDistIntegral;
+    bool telemetryFirstHitRecorded;
+    float telemetryFirstHitTime;
+    int telemetryShotsRequested;
+    int telemetryShotsFired;
+    float lastStrafeInput;
+
     public override void Initialize()
     {
         rb = GetComponent<Rigidbody>();
@@ -158,6 +171,12 @@ public class EnemyAgent : Agent
         float turn    = Mathf.Clamp(actions.ContinuousActions[2], -1f, 1f);
         int shootAct  = actions.DiscreteActions[0]; // 0/1
 
+        if (!trainingMode)
+        {
+            lastStrafeInput = strafe;
+            if (shootAct == 1) telemetryShotsRequested++;
+        }
+
         // rotate
         transform.Rotate(0f, turn * turnSpeed * Time.fixedDeltaTime, 0f);
 
@@ -200,6 +219,23 @@ public class EnemyAgent : Agent
             Fire();
         }
 
+        // ----------------------------
+        // Telemetry accumulation (gameplay)
+        // ----------------------------
+        if (!trainingMode)
+        {
+            float dt = Time.fixedDeltaTime;
+            telemetryTotalTime += dt;
+
+            // Strafe%: count time where strafe input is meaningfully used
+            if (Mathf.Abs(lastStrafeInput) > 0.25f)
+                telemetryStrafeTime += dt;
+
+            // Avg distance integral
+            if (player != null)
+                telemetryDistIntegral += Vector3.Distance(transform.position, player.position) * dt;
+        }
+
         // rewards only in training
         if (trainingMode)
         {
@@ -226,7 +262,22 @@ public class EnemyAgent : Agent
 
         // connect bullet->owner for training callbacks
         if (b.TryGetComponent<Bullet>(out var bullet))
-            bullet.owner = trainingMode ? this : null;
+            bullet.owner = this;
+
+        if (!trainingMode)
+            telemetryShotsFired++;
+    }
+
+    // called by Bullet.cs when it hits player collider (gameplay)
+    public void ReportHitPlayerGameplay()
+    {
+        if (trainingMode) return;
+
+        if (!telemetryFirstHitRecorded)
+        {
+            telemetryFirstHitRecorded = true;
+            telemetryFirstHitTime = Time.time - telemetryWaveStart;
+        }
     }
 
     private void TrainingRewards(float forward, float strafe)
@@ -290,5 +341,40 @@ public class EnemyAgent : Agent
         {
             EndEpisode();
         }
+    }
+
+    // ----------------------------
+    // Telemetry API (gameplay)
+    // ----------------------------
+    public void TelemetryResetForWave(float waveStartTime)
+    {
+        telemetryWaveStart = waveStartTime;
+        telemetryTotalTime = 0f;
+        telemetryStrafeTime = 0f;
+        telemetryDistIntegral = 0f;
+        telemetryFirstHitRecorded = false;
+        telemetryFirstHitTime = -1f;
+        telemetryShotsRequested = 0;
+        telemetryShotsFired = 0;
+        lastStrafeInput = 0f;
+    }
+
+    public EnemyWaveTelemetry TelemetrySnapshot(int waveIndex)
+    {
+        float t = Mathf.Max(0.0001f, telemetryTotalTime);
+        float strafePct = Mathf.Clamp01(telemetryStrafeTime / t);
+        float avgDist = telemetryDistIntegral / t;
+        float timingQ = (telemetryShotsRequested > 0) ? Mathf.Clamp01((float)telemetryShotsFired / telemetryShotsRequested) : 0f;
+
+        return new EnemyWaveTelemetry
+        {
+            waveIndex = waveIndex,
+            strafePercent01 = strafePct,
+            avgDistance = avgDist,
+            timeToFirstHitSec = telemetryFirstHitRecorded ? telemetryFirstHitTime : -1f,
+            shotsRequested = telemetryShotsRequested,
+            shotsFired = telemetryShotsFired,
+            timingQuality01 = timingQ
+        };
     }
 }

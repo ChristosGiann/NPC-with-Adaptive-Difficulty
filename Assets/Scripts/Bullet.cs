@@ -15,6 +15,15 @@ public class Bullet : MonoBehaviour
     void OnCollisionEnter(Collision col)
     {
         var d = col.collider.GetComponentInParent<IDamageable>();
+
+        // ignore hitting the shooter/owner
+        if (owner != null && col.transform.IsChildOf(owner.transform))
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+
         if (d != null)
         {
             d.TakeDamage(damage);
@@ -23,6 +32,8 @@ public class Bullet : MonoBehaviour
             if (owner != null && col.collider.CompareTag("Player"))
             {
                 owner.ReportHitPlayer();
+                // gameplay telemetry (time-to-first-hit etc.)
+                owner.ReportHitPlayerGameplay();
             }
         }
 
